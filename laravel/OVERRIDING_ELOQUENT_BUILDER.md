@@ -26,7 +26,7 @@ class HolidayQueryBuilder extends BaseQueryBuilder
    // methods and properties...
 }
 ```
-<br><br/>
+<br>
 
 ## Step 2: Override model's **newEloquentBuilder()**
 
@@ -53,7 +53,7 @@ class Holiday extends Model
     }
 }
 ```
-<br><br/>
+<br>
 
 ## Step 3: Add model's **query()** type hint
 
@@ -83,3 +83,74 @@ class Holiday extends Model
     }
 }
 ```
+<br>
+
+## Step 4. Add querying methods
+After completing steps 1-3 the `Holiday` model is set up to use `HolidayQueryBuilder`, so now it's time to proceed with creating methods for querying.
+
+``` php
+/**
+ * Class HolidayQueryBuilder.
+ */
+class HolidayQueryBuilder extends BaseQueryBuilder
+{
+    /**
+     * Only holidays that are repeating.
+     *
+     * @param bool $repeating
+     *
+     * @return static
+     */
+    public function repeating(bool $repeating): static
+    {
+        $this->where('repeating', $repeating);
+
+        return $this;
+    }
+
+    /**
+     * Only holidays that are relevant on a given date.
+     *
+     * @param CarbonInterface $date
+     *
+     * @return static
+     */
+    public function relevantOn(CarbonInterface $date): static
+    {
+        $this->where('date', '=', $date);
+
+        return $this;
+    }
+}
+```
+<br>
+
+# Usage examples
+## Perfectly type hinted
+``` php
+Holiday::query()
+    ->repeating(true)
+    ->relevantOn(Carbon::yesterday())
+    ->each(function (Holiday $holiday) {
+        dispatch(new ProlongHoliday($holiday));
+    });
+```
+After calling `query()` IDE will know that following calls are made on an instance of `HolidayQueryBuilder`, so it will show a list of available methods, such as:
+``` php 
+repeating(bool $repeating): HolidayQueryBuilder
+```
+``` php 
+relevantOn(CarbonInterface $date): HolidayQueryBuilder
+```
+<br>
+
+## No type hints at all
+``` php
+Holiday::repeating(true)
+    ->relevantOn(Carbon::yesterday())
+    ->each(function (Holiday $holiday) {
+        dispatch(new ProlongHoliday($holiday));
+    });
+```
+This code snippet will have the same result as the previus one, but without calling `query()` IDE won't know that following calls are made on an instance of `HolidayQueryBuilder`, so it won't show hints.
+<br>
