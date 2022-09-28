@@ -153,4 +153,48 @@ Holiday::repeating(true)
     });
 ```
 This code snippet will have the same result as the previus one, but without calling `query()` IDE won't know that following calls are made on an instance of `HolidayQueryBuilder`, so it won't show hints.
-<br>
+<br><br>
+
+## Relations
+
+``` php
+class Restaurant extends BaseModel
+{
+    /**
+     * Holidays associated with the model.
+     *
+     * @return BelongsToMany
+     */
+    public function holidays(): BelongsToMany
+    {
+        return $this->belongsToMany(Holiday::class, 'restaurant_holiday');
+    }
+}
+```
+Important thing to note is that calling `holidays()` on an instance of `Restaurant` model will return object of type `BelongsToMany`, which in turn has `HolidayQueryBuilder` as base query builder. In tinker it will look something like this:
+
+``` php
+>>> $restaurant->holidays()
+=> Illuminate\Database\Eloquent\Relations\BelongsToMany {}
+```
+``` php
+>>> $restaurant->holidays()->getQuery()
+=> App\Queries\HolidayQueryBuilder {}
+```
+
+This means that the following code block is correct, since `HolidayQueryBuilder`'s methods can be used on `holidays()` relation. 
+``` php
+$holidays = $restaurant->holidays()
+    ->relevantOn(now())
+    ->get();
+```
+But IDE won't show `relevantOn()` method in hints, since it has no idea that `holidays()` relation has `HolidayQueryBuilder` as base query builder. Specifying `BelongsToMany|HolidayQueryBuilder` union as return type will fix that.
+``` php
+/**
+ * Holidays associated with the model.
+ *
+ * @return BelongsToMany|HolidayQueryBuilder
+ */
+public function holidays(): BelongsToMany|HolidayQueryBuilder
+```
+ <br>
