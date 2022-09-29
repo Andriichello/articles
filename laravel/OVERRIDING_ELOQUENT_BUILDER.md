@@ -1,5 +1,28 @@
-# Overriding model's Eloquent Builder
-## Step 1. Create class, which extends Eloquent Builder
+# Table of contents
+[Overriding model's Eloquent Builder](#overriding)
+- [Step 1. Create class, which extends Eloquent Builder](#overriding-step-1)
+- [Step 2: Override model's **newEloquentBuilder()**](#overriding-step-2)
+- [Step 3: Add model's **query()** type hint](#overriding-step-3)
+- [Step 4. Add querying methods](#overriding-step-4)
+
+[Usage examples](#usage)
+- [Perfectly type hinted](#usage-perfect-hints)
+- [No type hints at all](#usage-no-hints)
+- [Relations](#usage-relations)
+- [Defining scopes in model class](#usage-scopes-in-model)
+- [Defining scopes in query builder class](#usage-scopes-in-builder)
+
+[Nested queries](#nested-queries)
+- [Creating methods for nested querying](#creating-wrapped-where)
+- [Using newly created methods for nested querying](#using-wrapped-where)
+
+[How can it make your life easier?](#how-it-helps-you)
+- [Limiting visibility of records based on **User**](#limiting-visibility-based-on-user)
+
+<br><br>
+
+# Overriding model's Eloquent Builder <a name="overriding"></a>
+## Step 1. Create class, which extends Eloquent Builder <a name="overriding-step-1"></a>
 
 First create a class, which will be the base for all future query builders.
 
@@ -28,7 +51,7 @@ class HolidayQueryBuilder extends BaseQueryBuilder
 ```
 <br>
 
-## Step 2: Override model's **newEloquentBuilder()**
+## Step 2: Override model's **newEloquentBuilder()** <a name="overriding-step-2"></a>
 
 Override `Holiday` model's `newEloquentBuilder()` in order to make it use newly created `HolidayQueryBuilder`.
 
@@ -55,7 +78,7 @@ class Holiday extends Model
 ```
 <br>
 
-## Step 3: Add model's **query()** type hint
+## Step 3: Add model's **query()** type hint <a name="overriding-step-3"></a>
 
 To `Holiday` model's PHPDoc add `query()` method annotation, in which specify that return type is `HolidayQueryBuilder`.
 ``` php 
@@ -85,7 +108,7 @@ class Holiday extends Model
 ```
 <br>
 
-## Step 4. Add querying methods
+## Step 4. Add querying methods <a name="overriding-step-4"></a>
 After completing steps 1-3 the `Holiday` model is set up to use `HolidayQueryBuilder`, so now it's time to proceed with creating methods for querying.
 
 ``` php
@@ -125,8 +148,8 @@ class HolidayQueryBuilder extends BaseQueryBuilder
 ```
 <br>
 
-# Usage examples
-## Perfectly type hinted
+# Usage examples <a name="usage"></a>
+## Perfectly type hinted <a name="usage-perfect-hints"></a>
 ``` php
 Holiday::query()
     ->repeating(true)
@@ -144,7 +167,7 @@ relevantOn(CarbonInterface $date): HolidayQueryBuilder
 ```
 <br>
 
-## No type hints at all
+## No type hints at all <a name="usage-no-hints"></a>
 ``` php
 Holiday::repeating(true)
     ->relevantOn(Carbon::yesterday())
@@ -155,7 +178,7 @@ Holiday::repeating(true)
 This code snippet will have the same result as the previus one, but without calling `query()` IDE won't know that following calls are made on an instance of `HolidayQueryBuilder`, so it won't show hints.
 <br><br>
 
-## Relations
+## Relations <a name="usage-relations"></a>
 
 ``` php
 class Restaurant extends BaseModel
@@ -200,7 +223,7 @@ public function holidays(): BelongsToMany|HolidayQueryBuilder
  <br>
 
 
-## Defining scopes in model class
+## Defining scopes in model class <a name="usage-scopes-in-model"></a>
 First lets define `relevant` scope on the `Holiday` model.
 ``` php
 /**
@@ -250,7 +273,7 @@ There are three ways, in which `relevant` scope can be applied, namely:
 ```
 <br>
 
-## Defining scopes in query builder class
+## Defining scopes in query builder class <a name="usage-scopes-in-builder"></a>
 Lets move `scopeRelevant()` definition from `Holiday` model to `HolidayQueryBuilder` and see what will change.
 
 ``` php
@@ -319,13 +342,13 @@ There were three ways, in which `relevant` scope could be applied when it was de
 So the conclusion is that scopes, defined in query builders, can be applied by specifying name in a `scopes()` call, but not by calling the method with scope name on query builder instance or statically on model class.
 <br><br>
 
-# Nested queries
+# Nested queries <a name="nested-queries"></a>
 By default callback specified in `whereNested()` will have first parameter of `Illuminate\Database\Query\Builder` type, so methods defined in the custom query builder will not be available.
 
 If there is a need to use custom query builder in nested callbacks, then you’ll have to create new methods for it or update existing ones (the problem is that those methods are located in `Illuminate\Database\Query\Builder`, but we are extending `Illuminate\Database\Eloquent\Builder` and this brings us a lot of problems due to method calls forwarding).
 <br><br>
 
-## Creating methods for nested querying
+## Creating methods for nested querying <a name="creating-wrapped-where"></a>
 ``` php
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 
@@ -380,7 +403,7 @@ class BaseQueryBuilder extends EloquentBuilder
 Calling `forWrappedWhere()` will return a new instance of model's custom query builder and it's important to note that global scopes are removed from the returned query builder to avoid unpredicteble side effects. 
 <br><br>
 
-## Using newly created methods for nested querying
+## Using newly created methods for nested querying <a name="using-wrapped-where"></a>
 Callback, which is being specified in `whereWrapped()` and `orWhereWrapped()`, has first parameter of custom query builder type, so all of the methods defined in it will be available to use.
 
 ``` php
@@ -391,8 +414,8 @@ Holiday::query()
 ```
 <br>
 
-# How can it make your life easier?
-## Limiting visibility of records based on `User`
+# How can it make your life easier? <a name="how-it-helps-you"></a>
+## Limiting visibility of records based on `User` <a name="limiting-visibility-based-on-user"></a>
 One of the cool ways to use custom query builder is to define querying methods for limiting records to only those that are available for given user or on given request. It’s really helpful with CRUD operations such as index.
 
 First lets create `IndexableInterface`. 
@@ -468,4 +491,3 @@ class CustomerQueryBuilder extends BaseQueryBuilder
     }
 }
 ```
-
