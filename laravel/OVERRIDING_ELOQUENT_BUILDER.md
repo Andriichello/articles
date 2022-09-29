@@ -452,7 +452,6 @@ class BaseQueryBuilder extends EloquentBuilder implements IndexableInterface
      * @param User $user
      *
      * @return static
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function index(User $user): static
     {
@@ -477,7 +476,6 @@ class CustomerQueryBuilder extends BaseQueryBuilder
      * @param User $user
      *
      * @return static
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function index(User $user): static
     {
