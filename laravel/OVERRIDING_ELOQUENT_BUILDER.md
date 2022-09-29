@@ -198,3 +198,274 @@ But IDE won't show `relevantOn()` method in hints, since it has no idea that `ho
 public function holidays(): BelongsToMany|HolidayQueryBuilder
 ```
  <br>
+
+
+## Defining scopes in model class
+First lets define `relevant` scope on the `Holiday` model.
+``` php
+/**
+ * Class Holiday.
+ *
+ * @method static HolidayQueryBuilder query()
+ */
+class Holiday extends Model
+{
+    /** 
+     * Only holidays that are relevant starting from now.
+     * 
+     * @param HolidayQueryBuilder $builder
+     * 
+     * @return void
+     */
+    public function scopeRelevant(HolidayQueryBuilder $builder): void {
+        $builder->where('date', '>=', now());
+    }
+
+    /**
+     * @param DatabaseBuilder $query
+     *
+     * @return HolidayQueryBuilder
+     */
+    public function newEloquentBuilder($query): HolidayQueryBuilder
+    {
+        return new HolidayQueryBuilder($query);
+    }
+}
+```
+There are three ways, in which `relevant` scope can be applied, namely:
+1. **Static call on class**
+``` php
+>>> Holiday::relevant()->toSql()
+=> "select * from `holidays` where `date` >= ?"
+```
+2. **Direct call on query builder instance**
+``` php
+>>> Holiday::query()->relevant()->toSql()
+=> "select * from `holidays` where `date` >= ?"
+```
+3. **By specifying scope name in a call to `scopes()` on query builder instance**
+``` php
+>>> Holiday::query()->scopes('relevant')->toSql()
+=> "select * from `holidays` where `date` >= ?"
+```
+<br>
+
+## Defining scopes in query builder class
+Lets move `scopeRelevant()` definition from `Holiday` model to `HolidayQueryBuilder` and see what will change.
+
+``` php
+/**
+ * Class HolidayQueryBuilder.
+ */
+class HolidayQueryBuilder extends BaseQueryBuilder
+{
+    /** 
+     * Only holidays that are relevant starting from now.
+     * 
+     * @param HolidayQueryBuilder $builder
+     * 
+     * @return void
+     */
+    public function scopeRelevant(HolidayQueryBuilder $builder): void {
+        $builder->where('date', '>=', now());
+    }
+
+    /**
+     * Only holidays that are repeating.
+     *
+     * @param bool $repeating
+     *
+     * @return static
+     */
+    public function repeating(bool $repeating): static
+    {
+        $this->where('repeating', $repeating);
+
+        return $this;
+    }
+
+    /**
+     * Only holidays that are relevant on a given date.
+     *
+     * @param CarbonInterface $date
+     *
+     * @return static
+     */
+    public function relevantOn(CarbonInterface $date): static
+    {
+        $this->where('date', '=', $date);
+
+        return $this;
+    }
+}
+```
+
+There were three ways, in which `relevant` scope could be applied when it was defined in `Holiday` model class. Lets test them when `scopeRelevant()` is defined in `HolidayQueryBuilder`:
+1. **Static call on class**
+``` php
+>>> Holiday::relevant()->toSql()
+=> BadMethodCallException with message 'Call to undefined method App\Models\Holiday::relevant()'
+```
+2. **Direct call on query builder instance**
+``` php
+>>> Holiday::query()->relevant()->toSql()
+=> BadMethodCallException with message 'Call to undefined method App\Queries\HolidayQueryBuilder::relevant()'
+```
+3. **By specifying scope name in a call to `scopes()` on query builder instance**
+``` php
+>>> Holiday::query()->scopes('relevant')->toSql()
+=> "select * from `holidays` where `date` >= ?"
+```
+So the conclusion is that scopes, defined in query builders, can be applied by specifying name in a `scopes()` call, but not by calling the method with scope name on query builder instance or statically on model class.
+<br><br>
+
+# Nested queries
+By default callback specified in `whereNested()` will have first parameter of `Illuminate\Database\Query\Builder` type, so methods defined in the custom query builder will not be available.
+
+If there is a need to use custom query builder in nested callbacks, then you’ll have to create new methods for it or update existing ones (the problem is that those methods are located in `Illuminate\Database\Query\Builder`, but we are extending `Illuminate\Database\Eloquent\Builder` and this brings us a lot of problems due to method calls forwarding).
+<br><br>
+
+## Creating methods for nested querying
+``` php
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+
+/**
+ * Class BaseQueryBuilder.
+ */
+class BaseQueryBuilder extends EloquentBuilder
+{
+    /**
+     * Create a new query instance for wrapped where condition.
+     *
+     * @return static
+     */
+    public function forWrappedWhere(): static
+    {
+        /** @var static $builder */
+        $builder = $this->model::query();
+        $builder->withoutGlobalScopes();
+
+        return $builder;
+    }
+
+    /**
+     * Add a wrapped where statement to the query.
+     *
+     * @param Closure $callback
+     * @param string $boolean
+     *
+     * @return static
+     */
+    public function whereWrapped(Closure $callback, string $boolean = 'and'): static
+    {
+        call_user_func($callback, $query = $this->forWrappedWhere());
+        $this->addNestedWhereQuery($query->getQuery(), $boolean);
+
+        return $this;
+    }
+
+    /**
+     * Add a wrapped orWhere statement to the query.
+     *
+     * @param Closure $callback
+     *
+     * @return static
+     */
+    public function orWhereWrapped(Closure $callback): static
+    {
+        return $this->whereWrapped($callback, 'or');
+    }
+}
+```
+Calling `forWrappedWhere()` will return a new instance of model's custom query builder and it's important to note that global scopes are removed from the returned query builder to avoid unpredicteble side effects. 
+<br><br>
+
+## Using newly created methods for nested querying
+Callback, which is being specified in `whereWrapped()` and `orWhereWrapped()`, has first parameter of custom query builder type, so all of the methods defined in it will be available to use.
+
+``` php
+Holiday::query()
+    ->whereWrapped(function (HolidayQueryBuilder $builder) {
+        // conditions, which should be nested            
+    }) 
+```
+<br>
+
+# How can it make your life easier?
+## Limiting visibility of records based on `User`
+One of the cool ways to use custom query builder is to define querying methods for limiting records to only those that are available for given user or on given request. It’s really helpful with CRUD operations such as index.
+
+First lets create `IndexableInterface`. 
+``` php
+/**
+ * Interface IndexableInterface.
+ */
+interface IndexableInterface
+{
+    /**
+     * Apply index query conditions.
+     *
+     * @param User $user
+     *
+     * @return BaseQueryBuilder
+     */
+    public function index(User $user): BaseQueryBuilder;
+}
+```
+
+Then implement `IndexableInterface` in `BaseQueryBuilder` or on specific custom query builder class.
+
+``` php
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+
+/**
+ * Class BaseQueryBuilder.
+ */
+class BaseQueryBuilder extends EloquentBuilder implements IndexableInterface
+{
+    /**
+     * Apply index query conditions.
+     *
+     * @param User $user
+     *
+     * @return static
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    public function index(User $user): static
+    {
+        return $this;
+    }
+
+    // common methods and properties...
+}
+```
+
+Lets take `CustomerQueryBuilder` as an example. It makes sure that staff members can get a list of all customers and at the same time other users can only get their own record.
+
+``` php
+/**
+ * Class CustomerQueryBuilder.
+ */
+class CustomerQueryBuilder extends BaseQueryBuilder
+{
+    /**
+     * Apply index query conditions.
+     *
+     * @param User $user
+     *
+     * @return static
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    public function index(User $user): static
+    {
+        if ($user->isStaff()) {
+            return $this;
+        }
+
+        $this->where('id', $user->customer_id);
+
+        return $this;
+    }
+}
+```
+
