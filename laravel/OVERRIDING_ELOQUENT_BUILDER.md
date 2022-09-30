@@ -12,7 +12,6 @@
 - [Scopes](#usage-scopes)
     - [In model class](#usage-scopes-in-model)
     - [In query builder class](#usage-scopes-in-builder)
-    - [Conclusion](#usage-scopes-conclusion)
 
 [Nested queries](#nested-queries)
 - [Creating methods for nested querying](#creating-wrapped-where)
@@ -295,34 +294,6 @@ class HolidayQueryBuilder extends BaseQueryBuilder
     public function scopeRelevant(HolidayQueryBuilder $builder): void {
         $builder->where('date', '>=', now());
     }
-
-    /**
-     * Only holidays that are repeating.
-     *
-     * @param bool $repeating
-     *
-     * @return static
-     */
-    public function repeating(bool $repeating): static
-    {
-        $this->where('repeating', $repeating);
-
-        return $this;
-    }
-
-    /**
-     * Only holidays that are relevant on a given date.
-     *
-     * @param CarbonInterface $date
-     *
-     * @return static
-     */
-    public function relevantOn(CarbonInterface $date): static
-    {
-        $this->where('date', '=', $date);
-
-        return $this;
-    }
 }
 ```
 
@@ -343,31 +314,54 @@ There were three ways, in which `relevant` scope could be applied when it was de
 => "select * from `holidays` where `date` >= ?"
 ```
 Scopes, defined in query builders, can be applied by specifying name in a `scopes()` call, but not by calling it directly on query builder instance or statically on model class.
-<br><br>
 
-## Conclusion <a name="usage-scopes-conslusion"></a>
-Scopes can still be defined in a model class as well as in the dedicated query builder class, but having them defined in query builder only gives us an ability to apply them via call to `scopes()`. 
-
-To conclude I'd say that there is almost no sense defining scopes in dedicated query builder, since we can define methods without `scope` prefix and use them the same way as we would use the scope.
-
-Having `scopeRelevant()` defined in `Holiday` it would be possible to apply given scope by calling `relevant()`. It is possible to replicate the same behaivor by defining `relevant()` method in the `HolidayQueryBuilder`.
+To make scopes on dedicated query builder behave the same way as the ones defined on model we need to add methods, which replicate scope calls. It will look something like this:
 
 ``` php
-// (before) defined on model...
+/**
+ * Class HolidayQueryBuilder.
+ */
+class HolidayQueryBuilder extends BaseQueryBuilder
+{
+    /** 
+     * Only holidays that are relevant starting from now.
+     * 
+     * @param HolidayQueryBuilder $builder
+     * 
+     * @return void
+     */
+    public function scopeRelevant(HolidayQueryBuilder $builder): void {
+        $builder->where('date', '>=', now());
+    }
 
-public function scopeRelevant(HolidayQueryBuilder $builder): void {
-    $builder->where('date', '>=', now());
+    /** 
+     * Only holidays that are relevant starting from now.
+     * 
+     * @return static
+     */
+    public function relevant(): static {
+        $this->scopes('relevant');
+
+        return $this;
+    }
 }
 ```
 
+After adding `relevant()` method to `HolidayQueryBuilder` all three ways of applying `relevant` scope will be available, namely:
+1. **Static call on class**
 ``` php
-// (after) defined on dedicated query builder...
-
-public function relevant(): static {
-    $builder->where('date', '>=', now());
-
-    return $this;
-}
+>>> Holiday::relevant()->toSql()
+=> "select * from `holidays` where `date` >= ?"
+```
+2. **Direct call on query builder instance**
+``` php
+>>> Holiday::query()->relevant()->toSql()
+=> "select * from `holidays` where `date` >= ?"
+```
+3. **By specifying scope name in a call to `scopes()` on query builder instance**
+``` php
+>>> Holiday::query()->scopes('relevant')->toSql()
+=> "select * from `holidays` where `date` >= ?"
 ```
 <br>
 
