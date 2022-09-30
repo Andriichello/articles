@@ -3,14 +3,16 @@
 - [Step 1. Create class, which extends Eloquent Builder](#overriding-step-1)
 - [Step 2: Override model's **newEloquentBuilder()**](#overriding-step-2)
 - [Step 3: Add model's **query()** type hint](#overriding-step-3)
-- [Step 4. Add querying methods](#overriding-step-4)
+- [Step 4. Create querying methods](#overriding-step-4)
 
 [Usage examples](#usage)
-- [Perfectly type hinted](#usage-perfect-hints)
+- [Perfect type hints](#usage-perfect-hints)
 - [No type hints at all](#usage-no-hints)
 - [Relations](#usage-relations)
-- [Defining scopes in model class](#usage-scopes-in-model)
-- [Defining scopes in query builder class](#usage-scopes-in-builder)
+- [Scopes](#usage-scopes)
+    - [In model class](#usage-scopes-in-model)
+    - [In query builder class](#usage-scopes-in-builder)
+    - [Conclusion](#usage-scopes-conclusion)
 
 [Nested queries](#nested-queries)
 - [Creating methods for nested querying](#creating-wrapped-where)
@@ -38,7 +40,7 @@ class BaseQueryBuilder extends EloquentBuilder
 }
 ```
 
-Then proceed by creating class for a specific model, e.g. `HolidayQueryBuilder`, which is used for `Holiday` model.
+Then proceed by creating class for a specific model, e.g. `HolidayQueryBuilder`, which is used for `Holiday`.
 
 ``` php
 /**
@@ -53,7 +55,7 @@ class HolidayQueryBuilder extends BaseQueryBuilder
 
 ## Step 2: Override model's **newEloquentBuilder()** <a name="overriding-step-2"></a>
 
-Override `Holiday` model's `newEloquentBuilder()` in order to make it use newly created `HolidayQueryBuilder`.
+Override `Holiday`'s `newEloquentBuilder()` in order to make it use newly created `HolidayQueryBuilder`.
 
 ``` php
 use Illuminate\Database\Query\Builder as DatabaseBuilder;
@@ -80,7 +82,7 @@ class Holiday extends Model
 
 ## Step 3: Add model's **query()** type hint <a name="overriding-step-3"></a>
 
-To `Holiday` model's PHPDoc add `query()` method annotation, in which specify that return type is `HolidayQueryBuilder`.
+To `Holiday`'s PHPDoc add `query()` method annotation, in which specify that return type is `HolidayQueryBuilder`.
 ``` php 
 @method static HolidayQueryBuilder query()
 ```
@@ -108,8 +110,8 @@ class Holiday extends Model
 ```
 <br>
 
-## Step 4. Add querying methods <a name="overriding-step-4"></a>
-After completing steps 1-3 the `Holiday` model is set up to use `HolidayQueryBuilder`, so now it's time to proceed with creating methods for querying.
+## Step 4. Create querying methods <a name="overriding-step-4"></a>
+After completing steps 1-3 the `Holiday` is set up to use `HolidayQueryBuilder`, so now it's time to proceed with creating methods for querying.
 
 ``` php
 /**
@@ -149,7 +151,7 @@ class HolidayQueryBuilder extends BaseQueryBuilder
 <br>
 
 # Usage examples <a name="usage"></a>
-## Perfectly type hinted <a name="usage-perfect-hints"></a>
+## Perfect type hints <a name="usage-perfect-hints"></a>
 ``` php
 Holiday::query()
     ->repeating(true)
@@ -194,7 +196,7 @@ class Restaurant extends BaseModel
     }
 }
 ```
-Important thing to note is that calling `holidays()` on an instance of `Restaurant` model will return object of type `BelongsToMany`, which in turn has `HolidayQueryBuilder` as base query builder. In tinker it will look something like this:
+Important thing to note is that calling `holidays()` on an instance of `Restaurant` will return object of type `BelongsToMany`, which in turn has `HolidayQueryBuilder` as base query builder. In tinker it will look something like this:
 
 ``` php
 >>> $restaurant->holidays()
@@ -223,8 +225,9 @@ public function holidays(): BelongsToMany|HolidayQueryBuilder
  <br>
 
 
-## Defining scopes in model class <a name="usage-scopes-in-model"></a>
-First lets define `relevant` scope on the `Holiday` model.
+## Scopes <a name="usage-scopes"></a>
+## In model class <a name="usage-scopes-in-model"></a>
+First lets define `relevant` scope on the `Holiday`.
 ``` php
 /**
  * Class Holiday.
@@ -273,8 +276,8 @@ There are three ways, in which `relevant` scope can be applied, namely:
 ```
 <br>
 
-## Defining scopes in query builder class <a name="usage-scopes-in-builder"></a>
-Lets move `scopeRelevant()` definition from `Holiday` model to `HolidayQueryBuilder` and see what will change.
+## In query builder class <a name="usage-scopes-in-builder"></a>
+Lets move `scopeRelevant()` definition from `Holiday` to `HolidayQueryBuilder` and see what will change.
 
 ``` php
 /**
@@ -323,7 +326,7 @@ class HolidayQueryBuilder extends BaseQueryBuilder
 }
 ```
 
-There were three ways, in which `relevant` scope could be applied when it was defined in `Holiday` model class. Lets test them when `scopeRelevant()` is defined in `HolidayQueryBuilder`:
+There were three ways, in which `relevant` scope could be applied when it was defined in `Holiday`. Lets test them when `scopeRelevant()` is defined in `HolidayQueryBuilder`:
 1. **Static call on class**
 ``` php
 >>> Holiday::relevant()->toSql()
@@ -339,13 +342,39 @@ There were three ways, in which `relevant` scope could be applied when it was de
 >>> Holiday::query()->scopes('relevant')->toSql()
 => "select * from `holidays` where `date` >= ?"
 ```
-So the conclusion is that scopes, defined in query builders, can be applied by specifying name in a `scopes()` call, but not by calling the method with scope name on query builder instance or statically on model class.
+Scopes, defined in query builders, can be applied by specifying name in a `scopes()` call, but not by calling it directly on query builder instance or statically on model class.
 <br><br>
 
-# Nested queries <a name="nested-queries"></a>
-By default callback specified in `whereNested()` will have first parameter of `Illuminate\Database\Query\Builder` type, so methods defined in the custom query builder will not be available.
+## Conclusion <a name="usage-scopes-conslusion"></a>
+Scopes can still be defined in a model class as well as in the dedicated query builder class, but having them defined in query builder only gives us an ability to apply them via call to `scopes()`. 
 
-If there is a need to use custom query builder in nested callbacks, then you’ll have to create new methods for it or update existing ones (the problem is that those methods are located in `Illuminate\Database\Query\Builder`, but we are extending `Illuminate\Database\Eloquent\Builder` and this brings us a lot of problems due to method calls forwarding).
+To conclude I'd say that there is almost no sense defining scopes in dedicated query builder, since we can define methods without `scope` prefix and use them the same way as we would use the scope.
+
+Having `scopeRelevant()` defined in `Holiday` it would be possible to apply given scope by calling `relevant()`. It is possible to replicate the same behaivor by defining `relevant()` method in the `HolidayQueryBuilder`.
+
+``` php
+// (before) defined on model...
+
+public function scopeRelevant(HolidayQueryBuilder $builder): void {
+    $builder->where('date', '>=', now());
+}
+```
+
+``` php
+// (after) defined on dedicated query builder...
+
+public function relevant(): static {
+    $builder->where('date', '>=', now());
+
+    return $this;
+}
+```
+<br>
+
+# Nested queries <a name="nested-queries"></a>
+By default callback specified in `whereNested()` will have first parameter of `Illuminate\Database\Query\Builder` type, so methods defined in the dedicated query builder will not be available.
+
+If there is a need to use dedicated query builder in nested callbacks, then you’ll have to create new methods for it or update existing ones (the problem is that those methods are located in `Illuminate\Database\Query\Builder`, but we are extending `Illuminate\Database\Eloquent\Builder` and this brings us a lot of problems due to method calls forwarding).
 <br><br>
 
 ## Creating methods for nested querying <a name="creating-wrapped-where"></a>
@@ -400,11 +429,11 @@ class BaseQueryBuilder extends EloquentBuilder
     }
 }
 ```
-Calling `forWrappedWhere()` will return a new instance of model's custom query builder and it's important to note that global scopes are removed from the returned query builder to avoid unpredicteble side effects. 
+Calling `forWrappedWhere()` will return a new instance of model's dedicated query builder and it's important to note that global scopes are removed from the returned query builder to avoid unpredicteble side effects. 
 <br><br>
 
 ## Using newly created methods for nested querying <a name="using-wrapped-where"></a>
-Callback, which is being specified in `whereWrapped()` and `orWhereWrapped()`, has first parameter of custom query builder type, so all of the methods defined in it will be available to use.
+Callback, which is being specified in `whereWrapped()` and `orWhereWrapped()`, has first parameter of dedicated query builder type, so all of the methods defined in it will be available to use.
 
 ``` php
 Holiday::query()
@@ -416,7 +445,7 @@ Holiday::query()
 
 # How can it make your life easier? <a name="how-it-helps-you"></a>
 ## Limiting visibility of records based on `User` <a name="limiting-visibility-based-on-user"></a>
-One of the cool ways to use custom query builder is to define querying methods for limiting records to only those that are available for given user or on given request. It’s really helpful with CRUD operations such as index.
+One of the cool ways to use dedicated query builder is to define querying methods for limiting records to only those that are available for given user or on given request. It’s really helpful with CRUD operations such as index.
 
 First lets create `IndexableInterface`. 
 ``` php
@@ -436,7 +465,7 @@ interface IndexableInterface
 }
 ```
 
-Then implement `IndexableInterface` in `BaseQueryBuilder` or on specific custom query builder class.
+Then implement `IndexableInterface` in `BaseQueryBuilder` or on specific dedicated query builder class.
 
 ``` php
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
