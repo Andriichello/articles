@@ -1,5 +1,5 @@
 # Table of contents
-[Overriding model's Eloquent Builder](#overriding)
+[Overriding model's Query Builder](#overriding)
 - [Step 1. Create class, which extends Eloquent Builder](#overriding-step-1)
 - [Step 2: Override model's **newEloquentBuilder()**](#overriding-step-2)
 - [Step 3: Add model's **query()** type hint](#overriding-step-3)
@@ -22,7 +22,7 @@
 
 <br><br>
 
-# Overriding model's Eloquent Builder <a name="overriding"></a>
+# Overriding model's Query Builder <a name="overriding"></a>
 ## Step 1. Create class, which extends Eloquent Builder <a name="overriding-step-1"></a>
 
 First create a class, which will be the base for all future query builders.
