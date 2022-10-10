@@ -14,6 +14,7 @@
     - [In query builder class](#usage-scopes-in-builder)
 
 [Nested queries](#nested-queries)
+- [Manually wrapping nested callback's query](#wrapping-query-in-callback)
 - [Creating methods for nested querying](#creating-wrapped-where)
 - [Using newly created methods for nested querying](#using-wrapped-where)
 
@@ -396,8 +397,31 @@ After adding `relevant()` method to `HolidayQueryBuilder` all three ways of appl
 
 By default the callback specified in `whereNested()` will have first parameter of `Illuminate\Database\Query\Builder` type, so methods defined in the dedicated query builder will not be available.
 
-If there is a need to use dedicated query builder in nested callbacks, then you’ll have to create new methods for it or update existing ones (the problem is that those methods are located in `Illuminate\Database\Query\Builder`, but we are extending `Illuminate\Database\Eloquent\Builder` and this brings us a lot of problems due to method calls forwarding).
+If there is a need to use dedicated query builder in nested callbacks, then you’ll have to wrap given in callback's first parameter, create new methods for it or update existing ones (the problem is that those methods are located in `Illuminate\Database\Query\Builder`, but we are extending `Illuminate\Database\Eloquent\Builder` and this brings us a lot of problems due to method calls forwarding).
 <br><br>
+
+## Manually wrapping nested callback's query <a name="wrapping-query-in-callback"></a>
+
+The simplest way of making nested callbacks work with dedicated query builders is by creating them manually from callback's first parameter, which is an instance of `Illuminate\Database\Query\Builder`. 
+
+``` php
+ /**
+     * Only holidays that are relevant and repeating at the same time.
+     *
+     * @return static
+     */
+    public function relevantAndRepeating(): static
+    {
+        $this->whereNested(function (DatabaseBuilder $query) {
+            $builder = new HolidayQueryBuilder($query);
+            $builder->relevantFrom(now())
+                ->repeating(true);
+        });
+
+        return $this;
+    } 
+```
+<br>
 
 ## Creating methods for nested querying <a name="creating-wrapped-where"></a>
 
