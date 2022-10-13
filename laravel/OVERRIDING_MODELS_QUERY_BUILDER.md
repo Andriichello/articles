@@ -258,7 +258,8 @@ class Holiday extends Model
      * 
      * @return void
      */
-    public function scopeRelevant(HolidayQueryBuilder $builder): void {
+    public function scopeRelevant(HolidayQueryBuilder $builder): void 
+    {
         $builder->where('date', '>=', now());
     }
 
@@ -312,7 +313,8 @@ class HolidayQueryBuilder extends BaseQueryBuilder
      * 
      * @return void
      */
-    public function scopeRelevant(HolidayQueryBuilder $builder): void {
+    public function scopeRelevant(HolidayQueryBuilder $builder): void 
+    {
         $builder->where('date', '>=', now());
     }
 }
@@ -355,7 +357,8 @@ class HolidayQueryBuilder extends BaseQueryBuilder
      * 
      * @return void
      */
-    public function scopeRelevant(HolidayQueryBuilder $builder): void {
+    public function scopeRelevant(HolidayQueryBuilder $builder): void 
+    {
         $builder->where('date', '>=', now());
     }
 
@@ -364,7 +367,8 @@ class HolidayQueryBuilder extends BaseQueryBuilder
      * 
      * @return static
      */
-    public function relevant(): static {
+    public function relevant(): static 
+    {
         $this->scopes('relevant');
 
         return $this;
