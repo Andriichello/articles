@@ -1,2 +1,2 @@
-# Articles
-Here I'll post my articles and tutorials in mardown format
+# Laravel
+- [Overriding model's Query Builder](/laravel/OVERRIDING_MODELS_QUERY_BUILDER.md)
